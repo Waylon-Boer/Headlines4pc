@@ -2,18 +2,23 @@ from tkinter import *
 from tkinter.ttk import Entry, Button, Notebook, Style
 from tkinter.filedialog import askopenfilename, asksaveasfilename, askdirectory
 from tkinter.scrolledtext import ScrolledText
+from tkinter.messagebox import *
 from tkinter import font
 from urllib.request import *
-import re, html, webbrowser, uuid, datetime
+import re, html, webbrowser
+import uuid, datetime
 import xml.etree.ElementTree as ET
 
 def open_rss():
     global rss_data
-    filepath = askopenfilename(defaultextension=".rss", filetypes=[("Really Simple Syndication", ".rss")])
-    data = ET.parse(filepath)
+    try:
+        filepath = askopenfilename(filetypes=[("Really Simple Syndication", ".rss"), ("eXtensible Markup Language", ".xml")])
+        data = ET.parse(filepath)
+    except:
+        showerror("Headlines4pc", "An error occured when trying to access this feed.")
     xml_root = data.getroot()
     try:
-        text_id = f"Local - {re.findall('<title>(.*?)</title>', open(filepath, 'r', encoding='utf8').read())[0]}"
+        text_id = f"Local - {xml_root.findtext(".//channel/title")}"
         text_id = re.sub(r'[\\/:*?"<>|]', "", text_id)
     except:
         text_id = "Unknown Feed"
@@ -30,10 +35,13 @@ def open_rss():
 
 def open_rss_url():
     global rss_data
-    data = urlopen(link_entry.get()).read().decode("utf8")
+    try:
+        data = urlopen(link_entry.get()).read().decode("utf8")
+    except:
+        showerror("Headlines4pc", "An error occured when trying to access this feed.")
     xml_root = ET.fromstring(data)
     try:
-        text_id = re.findall("<title>(.*?)</title>", data)[0]
+        text_id = xml_root.findtext(".//channel/title")
         text_id = re.sub(r'[\\/:*?"<>|]', "", text_id)
     except:
         text_id = "Unknown Feed"
@@ -133,12 +141,12 @@ SOFTWARE.""")
     help_tabs.add(mit_license, text="License")
     window.mainloop()
 
-def copy(self):
-    self.clipboard_clear()
+def copy(text):
+    text.clipboard_clear()
     try:
-        self.clipboard_append(self.get(SEL_FIRST, SEL_LAST))
+        text.clipboard_append(text.get(SEL_FIRST, SEL_LAST))
     except:
-        self.clipboard_append(self.get(1.0, END))
+        text.clipboard_append(text.get(1.0, END))
 
 def refresh():   
     tab = tabs.nametowidget(tabs.select())
@@ -180,11 +188,13 @@ def refresh():
 
 def close_tab():
     tab = tabs.select()
-    text_widgets.pop(tabs.tab(tab, "text"))
-    rss_data.pop(tabs.tab(tab, "text"))
-    url_dict.pop(tabs.tab(tab, "text"))
+    text = tabs.tab(tab, "text")
+    text_widgets.pop(text, None)
+    rss_data.pop(text, None)
+    url_dict.pop(text, None)
     tabs.forget(tab)
-    tabs.nametowidget(tab).destroy()
+    tab_widget = tabs.nametowidget(tab)
+    tab_widget.destroy()
 
 def set_theme(bg, bg2, fg):
     global new_bg, new_fg
@@ -268,7 +278,7 @@ menu_B3 = Menu(root, tearoff=False, activeborderwidth=2.5)
 menu_B3.add_command(label="Home", command=lambda: tabs.select(home))
 menu_B3.add_separator()
 menu_B3.add_command(label="Copy", command=lambda: copy(tabs.select()))
-menu_B3.add_command(label="Select All", command=lambda: tabs.select().tag_add(SEL, 1.0, END))
+menu_B3.add_command(label="Select All", command=lambda: tabs.nametowidget(tabs.select()).tag_add(SEL, 1.0, END))
 menu_B3.add_command(label="Save RSS", command=save_rss)
 menu_B3.add_separator()
 menu_B3.add_command(label="Refresh", command=refresh)
