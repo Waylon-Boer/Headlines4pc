@@ -18,7 +18,7 @@ def open_rss():
         showerror("Headlines4pc", "An error occured when trying to access this feed.")
     xml_root = data.getroot()
     try:
-        text_id = f"Local - {xml_root.findtext(".//channel/title")}"
+        text_id = f"Local - {xml_root.findtext('.//channel/title')}"
         text_id = re.sub(r'[\\/:*?"<>|]', "", text_id)
     except:
         text_id = "Unknown Feed"
@@ -109,7 +109,7 @@ def help_window():
     window.geometry("700x510")
     window.rowconfigure(0, weight=1)
     window.columnconfigure(0, weight=1)
-    help_tabs = Notebook(window, width=320)
+    help_tabs = Notebook(window)
     help_tabs.grid(row=0, column=0, sticky="nsew")
     about = Text(help_tabs, relief=FLAT, border=16, font=(font.nametofont("TkDefaultFont").actual()["family"], 12), wrap=WORD, background="#dcb")
     about.insert(INSERT, f"Headlines4pc\nCopyright (c) 2025-{str(datetime.datetime.now().year)}: Waylon Boer\n\nHeadlines4pc is a RSS Feed reader with tab support.")
@@ -263,11 +263,11 @@ label_themes = Label(frameThemes, text="Themes", bg="#fff", fg="#000", font=(fon
 label_themes.grid(row=0, column=0, sticky="w")
 button_theme_1 = Button(frameThemes, text="Light", command=lambda: set_theme("#ffffff", "#f0f0f0", "#000000"))
 button_theme_1.grid(row=1, column=0, sticky="nsew", pady=5)
-button_theme_2 = Button(frameThemes, text="Paper", command=lambda: set_theme("#ddccbb", "#f0f0f0", "#000000"))
+button_theme_2 = Button(frameThemes, text="Paper", command=lambda: set_theme("#eeddcc", "#f0f0f0", "#000000"))
 button_theme_2.grid(row=1, column=1, sticky="nsew", pady=5)
-button_theme_3 = Button(frameThemes, text="Blue", command=lambda: set_theme("#bbccdd", "#f0f0f0", "#000000"))
+button_theme_3 = Button(frameThemes, text="Blue", command=lambda: set_theme("#ccddee", "#f0f0f0", "#000000"))
 button_theme_3.grid(row=1, column=2, sticky="nsew", pady=5)
-button_theme_4 = Button(frameThemes, text="Green", command=lambda: set_theme("#bbddbb", "#f0f0f0", "#000000"))
+button_theme_4 = Button(frameThemes, text="Green", command=lambda: set_theme("#cceecc", "#f0f0f0", "#000000"))
 button_theme_4.grid(row=1, column=3, sticky="nsew", pady=5)
 button_theme_5 = Button(frameThemes, text="Dark", command=lambda: set_theme("#1e1e1e", "#1e1e1e", "#ffffff"))
 button_theme_5.grid(row=1, column=4, sticky="nsew", pady=5)
