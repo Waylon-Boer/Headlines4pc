@@ -1,2 +1,2 @@
 # Headlines4pc
-Headlines4pc is a RSS Feed reader with tab support.
+Headlines4pc is an RSS Feed reader with an easy-to-use user interface.
