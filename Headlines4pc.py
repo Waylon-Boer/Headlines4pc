@@ -19,8 +19,6 @@ def import_rss():
         filepath = askopenfilename(title="Import", filetypes=[("Really Simple Syndication", ".rss"), ("eXtensible Markup Language", ".xml")])
         print(filepath)
         if filepath != "":
-            data = ET.parse(filepath)
-            xml_root = data.getroot()
             try:
                 feed_id = f"File - {filepath.split('/')[-1]}"
                 feed_id = re.sub(r'[\\/:*?"<>|]', "", feed_id)
@@ -65,10 +63,10 @@ def open_rss():
         showerror("Headlines4pc", "An error occured when trying to access this feed.")
 
 def load_rss(feed_id):
+    global current_feed_id, current_item_id
     sidebar.delete(0, END)
     for i in rss_data:
         sidebar.insert(END, i)
-    global current_feed_id, current_item_id
     current_feed_id = feed_id
     data = rss_data[feed_id]
     xml_root = ET.fromstring(data)
@@ -125,11 +123,11 @@ def help_window():
     window.columnconfigure(0, weight=1)
     help_tabs = ttk.Notebook(window)
     help_tabs.grid(row=0, column=0, sticky="nsew")
-    about = Text(help_tabs, relief=FLAT, border=16, font=(font.nametofont("TkDefaultFont").actual()["family"], 12), wrap=WORD, background="#dcb")
+    about = Text(help_tabs, relief=FLAT, border=16, font=(font.nametofont("TkDefaultFont").actual()["family"], 12), wrap=WORD, background="#dedede")
     about.insert(INSERT, f"Headlines4pc\nCopyright (c) 2025-{str(datetime.datetime.now().year)}: Waylon Boer\n\nHeadlines4pc is an RSS Feed reader with an easy-to-use user interface.")
     about.configure(state=DISABLED)
     help_tabs.add(about, text="About")
-    mit_license = Text(help_tabs, relief=FLAT, border=16, font=(font.nametofont("TkDefaultFont").actual()["family"], 12), wrap=WORD, background="#dcb")
+    mit_license = Text(help_tabs, relief=FLAT, border=16, font=(font.nametofont("TkDefaultFont").actual()["family"], 12), wrap=WORD, background="#dedede")
     mit_license.insert(INSERT, """MIT License
 
 Copyright (c) 2025 Waylon Boer
@@ -353,5 +351,3 @@ root.bind("<F11>", lambda event: root.attributes("-fullscreen", not root.attribu
 root.bind("<Control-d>", lambda event: view_data())
 root.bind("<Control-D>", lambda event: view_data())
 root.mainloop()
-
-
