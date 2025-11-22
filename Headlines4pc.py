@@ -4,7 +4,7 @@ from tkinter.filedialog import askopenfilename, asksaveasfilename, askdirectory
 from tkinter.messagebox import *
 from tkinter import font
 from urllib.request import *
-import re, html, webbrowser, uuid, datetime
+import re, html, webbrowser, datetime
 import xml.etree.ElementTree as ET
 
 def toggle_sidebar():
@@ -353,4 +353,5 @@ root.bind("<F11>", lambda event: root.attributes("-fullscreen", not root.attribu
 root.bind("<Control-d>", lambda event: view_data())
 root.bind("<Control-D>", lambda event: view_data())
 root.mainloop()
+
 
