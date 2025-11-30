@@ -23,9 +23,19 @@ class Headlines4pc:
         self.root.rowconfigure(1, weight=1)
         self.root.columnconfigure(0, weight=1)
         self.root.protocol("WM_DELETE_WINDOW", lambda: self.save_favorites_and_exit())
+        
+        try:
+            self.root.iconbitmap("icon.ico")
+        except:
+            try:
+                self.root.iconbitmap("")
+            except:
+                pass
 
         self.style = ttk.Style(self.root)
-        self.style.configure("TSeparator", background="#888")
+        self.style.layout("Treeview", [
+            ("Treeview.treearea", {"sticky": "nsew"})
+        ])
 
         self.menuActions = tk.Menu(self.root, tearoff=False, activeborderwidth=2.5)
         self.menuActions.add_command(label="Copy", command=lambda: self.text.clipboard_append(self.text.get(1.0, tk.END)))
@@ -90,54 +100,77 @@ class Headlines4pc:
         self.content.add(self.reader, weight=1)
 
         self.sidebar_favorites = tk.Frame(self.main)
-        self.sidebar_favorites.rowconfigure(0, weight=1)
+        self.sidebar_favorites.rowconfigure(2, weight=1)
         self.sidebar_favorites.columnconfigure(0, weight=1)
 
-        self.listboxFavorites = tk.Listbox(self.sidebar_favorites, width=30, bg="#e1e1e1", relief=tk.FLAT, bd=12, font=(font.nametofont("TkDefaultFont").actual()["family"], 12))
-        self.listboxFavorites.grid(row=0, column=0, sticky="nsew")
+        self.labelFavorites = tk.Label(self.sidebar_favorites, text="Favorites", relief=tk.FLAT, bd=12, font=(font.nametofont("TkDefaultFont").actual()["family"], 16))
+        self.labelFavorites.grid(row=0, column=0, sticky="nsew")
+
+        self.separatorFavorites1 = ttk.Separator(self.sidebar_favorites)
+        self.separatorFavorites1.grid(row=1, column=0, sticky="nsew")
+
+        self.listboxFavorites = tk.Listbox(self.sidebar_favorites, width=30, relief=tk.FLAT, bd=12, highlightthickness=0, font=(font.nametofont("TkDefaultFont").actual()["family"], 12))
+        self.listboxFavorites.grid(row=2, column=0, sticky="nsew")
         self.listboxFavorites.bind("<Double-Button-1>", lambda event: self.open_favorite())
 
-        self.separatorFavorites = ttk.Separator(self.sidebar_favorites)
-        self.separatorFavorites.grid(row=1, column=0, sticky="nsew")
+        self.menu_B3_favorites = tk.Menu(self.root, tearoff=False, activeborderwidth=2.5)
+        self.menu_B3_favorites.add_command(label="Add", command=self.add_favorite)
+        self.menu_B3_favorites.add_command(label="Remove", command=self.remove_favorite)
+        self.menu_B3_favorites.add_separator()
+        self.menu_B3_favorites.add_command(label="Import", command=self.import_favorites)
+        self.menu_B3_favorites.add_command(label="Export", command=self.export_favorites)
+
+        self.listboxFavorites.bind("<Button-3>", lambda event: self.menu_B3_favorites.tk_popup(event.x_root, event.y_root))
+
+        self.separatorFavorites2 = ttk.Separator(self.sidebar_favorites)
+        self.separatorFavorites2.grid(row=3, column=0, sticky="nsew")
+        
         self.buttonFavorites1 = tk.Button(self.sidebar_favorites, bd=0, relief=tk.FLAT, height=2, width=10, anchor="w", text="    Add", command=self.add_favorite)
-        self.buttonFavorites1.grid(row=2, column=0, sticky="nsew")
+        self.buttonFavorites1.grid(row=4, column=0, sticky="nsew")
         self.buttonFavorites2 = tk.Button(self.sidebar_favorites, bd=0, relief=tk.FLAT, height=2, width=10, anchor="w", text="    Remove", command=self.remove_favorite)
-        self.buttonFavorites2.grid(row=3, column=0, sticky="nsew")
+        self.buttonFavorites2.grid(row=5, column=0, sticky="nsew")
         self.buttonFavorites3 = tk.Button(self.sidebar_favorites, bd=0, relief=tk.FLAT, height=2, width=10, anchor="w", text="    Import", command=self.import_favorites)
-        self.buttonFavorites3.grid(row=4, column=0, sticky="nsew")
+        self.buttonFavorites3.grid(row=6, column=0, sticky="nsew")
         self.buttonFavorites4 = tk.Button(self.sidebar_favorites, bd=0, relief=tk.FLAT, height=2, width=10, anchor="w", text="    Export", command=self.export_favorites)
-        self.buttonFavorites4.grid(row=5, column=0, sticky="nsew")
+        self.buttonFavorites4.grid(row=7, column=0, sticky="nsew")
 
         self.sidebar_tabs = tk.Frame(self.main)
-        self.sidebar_tabs.rowconfigure(0, weight=1)
+        self.sidebar_tabs.rowconfigure(2, weight=1)
         self.sidebar_tabs.columnconfigure(0, weight=1)
 
-        self.listboxTabs = tk.Listbox(self.sidebar_tabs, width=30, bg="#e1e1e1", relief=tk.FLAT, bd=12, font=(font.nametofont("TkDefaultFont").actual()["family"], 12))
-        self.listboxTabs.grid(row=0, column=0, sticky="nsew")
+        self.labelTabs = tk.Label(self.sidebar_tabs, text="Tabs", relief=tk.FLAT, bd=12, font=(font.nametofont("TkDefaultFont").actual()["family"], 16))
+        self.labelTabs.grid(row=0, column=0, sticky="nsew")
+
+        self.separatorTabs1 = ttk.Separator(self.sidebar_tabs)
+        self.separatorTabs1.grid(row=1, column=0, sticky="nsew")
+        
+        self.listboxTabs = tk.Listbox(self.sidebar_tabs, width=30, bg="#e1e1e1", relief=tk.FLAT, bd=12, highlightthickness=0, font=(font.nametofont("TkDefaultFont").actual()["family"], 12))
+        self.listboxTabs.grid(row=2, column=0, sticky="nsew")
         self.listboxTabs.bind("<Double-Button-1>", lambda event: self.open_from_tabs())
 
-        self.menu_B3_sidebar = tk.Menu(self.root, tearoff=False, activeborderwidth=2.5)
-        self.menu_B3_sidebar.add_command(label="Open", command=self.open_from_tabs)
-        self.menu_B3_sidebar.add_command(label="Close", command=self.close_from_tabs)
-        self.menu_B3_sidebar.add_separator()
-        self.menu_B3_sidebar.add_command(label="Import", command=self.import_rss)
-        self.menu_B3_sidebar.add_command(label="Export", command=self.export_rss)
-        self.menu_B3_sidebar.add_command(label="Export All", command=self.export_all)
+        self.menu_B3_tabs = tk.Menu(self.root, tearoff=False, activeborderwidth=2.5)
+        self.menu_B3_tabs.add_command(label="Open", command=self.open_from_tabs)
+        self.menu_B3_tabs.add_command(label="Close", command=self.close_tab)
+        self.menu_B3_tabs.add_separator()
+        self.menu_B3_tabs.add_command(label="Import", command=self.import_rss)
+        self.menu_B3_tabs.add_command(label="Export", command=self.export_rss)
+        self.menu_B3_tabs.add_command(label="Export All", command=self.export_all)
 
-        self.listboxTabs.bind("<Button-3>", lambda event: self.menu_B3_sidebar.tk_popup(event.x_root, event.y_root))
+        self.listboxTabs.bind("<Button-3>", lambda event: self.menu_B3_tabs.tk_popup(event.x_root, event.y_root))
 
-        self.separatorTabs = ttk.Separator(self.sidebar_tabs)
-        self.separatorTabs.grid(row=1, column=0, sticky="nsew")
+        self.separatorTabs2 = ttk.Separator(self.sidebar_tabs)
+        self.separatorTabs2.grid(row=3, column=0, sticky="nsew")
+        
         self.buttonTabs1 = tk.Button(self.sidebar_tabs, bd=0, relief=tk.FLAT, height=2, width=10, anchor="w", text="    Open", command=self.open_from_tabs)
-        self.buttonTabs1.grid(row=2, column=0, sticky="nsew")
-        self.buttonTabs2 = tk.Button(self.sidebar_tabs, bd=0, relief=tk.FLAT, height=2, width=10, anchor="w", text="    Close", command=self.close_from_tabs)
-        self.buttonTabs2.grid(row=3, column=0, sticky="nsew")
+        self.buttonTabs1.grid(row=4, column=0, sticky="nsew")
+        self.buttonTabs2 = tk.Button(self.sidebar_tabs, bd=0, relief=tk.FLAT, height=2, width=10, anchor="w", text="    Close", command=self.close_tab)
+        self.buttonTabs2.grid(row=5, column=0, sticky="nsew")
         self.buttonTabs3 = tk.Button(self.sidebar_tabs, bd=0, relief=tk.FLAT, height=2, width=10, anchor="w", text="    Import", command=self.import_rss)
-        self.buttonTabs3.grid(row=4, column=0, sticky="nsew")
+        self.buttonTabs3.grid(row=6, column=0, sticky="nsew")
         self.buttonTabs4 = tk.Button(self.sidebar_tabs, bd=0, relief=tk.FLAT, height=2, width=10, anchor="w", text="    Export", command=self.export_rss)
-        self.buttonTabs4.grid(row=5, column=0, sticky="nsew")
+        self.buttonTabs4.grid(row=7, column=0, sticky="nsew")
         self.buttonTabs5 = tk.Button(self.sidebar_tabs, bd=0, relief=tk.FLAT, height=2, width=10, anchor="w", text="    Export All", command=self.export_all)
-        self.buttonTabs5.grid(row=6, column=0, sticky="nsew")
+        self.buttonTabs5.grid(row=8, column=0, sticky="nsew")
 
         self.url_bar.focus_set()
         self.switch_theme()
@@ -156,16 +189,22 @@ class Headlines4pc:
         self.root.bind("<Control-D>", lambda event: self.add_favorite_menu())
         self.root.bind("<Control-e>", lambda event: self.toggle_xml())
         self.root.bind("<Control-E>", lambda event: self.toggle_xml())
+        self.root.bind("<Control-n>", lambda event: self.url_bar.focus_set())
+        self.root.bind("<Control-N>", lambda event: self.url_bar.focus_set())
         self.root.bind("<Control-o>", lambda event: self.import_rss_menu())
         self.root.bind("<Control-O>", lambda event: self.import_rss_menu())
         self.root.bind("<Control-Shift-o>", lambda event: self.toggle_favorites())
         self.root.bind("<Control-Shift-O>", lambda event: self.toggle_favorites())
+        self.root.bind("<Control-q>", lambda event: self.save_favorites_and_exit())
+        self.root.bind("<Control-Q>", lambda event: self.save_favorites_and_exit())
         self.root.bind("<Control-s>", lambda event: self.export_rss_menu())
         self.root.bind("<Control-S>", lambda event: self.export_rss_menu())
         self.root.bind("<Control-Shift-s>", lambda event: self.export_all_menu())
         self.root.bind("<Control-Shift-S>", lambda event: self.export_all_menu())
         self.root.bind("<Control-t>", lambda event: self.switch_theme())
         self.root.bind("<Control-T>", lambda event: self.switch_theme())
+        self.root.bind("<Control-w>", lambda event: self.close_tab())
+        self.root.bind("<Control-W>", lambda event: self.close_tab())
         self.root.bind("<Control-,>", lambda event: self.hide_sidebar())
         self.root.bind("<Control-.>", lambda event: self.toggle_favorites())
         self.root.bind("<Control-/>", lambda event: self.toggle_tabs())
@@ -279,7 +318,7 @@ class Headlines4pc:
         except:
             pass
 
-    def close_from_tabs(self):
+    def close_tab(self):
         try:
             feed_id = self.listboxTabs.get(tk.ACTIVE)
             if self.current_feed_id == feed_id:
@@ -399,6 +438,7 @@ class Headlines4pc:
             self.url_dict[feed_id] = url
             self.url_bar.delete(0, tk.END)
             self.load_rss(feed_id)
+            self.toggle_tabs()
         except:
             showerror("Headlines4pc", "An error occurred when trying to access this feed.")
 
@@ -508,6 +548,7 @@ class Headlines4pc:
         else:
             bg, bg2, bg3, bg4, bg5, fg = "#ffffff", "#f0f0f0", "#e1e1e1", "#ffffff", "#bbbbbb", "#000000"
         self.style.configure("TPanedwindow", background=bg2)
+        self.style.configure("TSeparator", background=bg2)
         self.reader.configure(bg=bg)
         for i in [self.titleLabel, self.dtLabel, self.text]:
             i.configure(bg=bg, fg=fg)
@@ -515,18 +556,22 @@ class Headlines4pc:
         self.style.configure("Treeview", background=bg, foreground=fg)
         for i in [self.buttonActions, self.buttonPrevious, self.buttonNext, self.buttonRefresh, self.buttonFavorites, self.buttonTabs]:
             i.configure(bg=bg2, fg=fg, activebackground=bg5, activeforeground=fg)
+            i.unbind("<Enter>")
+            i.unbind("<Leave>")
             i.bind("<Enter>", lambda event, widget=i: widget.configure(bg=bg3, fg=fg))
             i.bind("<Leave>", lambda event, widget=i: widget.configure(bg=bg2, fg=fg))
         self.url_bar.configure(bg=bg4, fg=fg, insertbackground=fg)
         self.buttonOK.configure(bg=bg3, fg=fg, activebackground=bg5, activeforeground=fg)
         self.toolbar.configure(bg=bg2)
-        self.listboxFavorites.configure(bg=bg2, fg=fg)
-        self.listboxTabs.configure(bg=bg2, fg=fg)
+        for i in [self.labelFavorites, self.listboxFavorites, self.labelTabs, self.listboxTabs]:
+            i.configure(bg=bg2, fg=fg)
         for i in [self.buttonFavorites1, self.buttonFavorites2, self.buttonFavorites3, self.buttonFavorites4, self.buttonTabs1, self.buttonTabs2, self.buttonTabs3, self.buttonTabs4, self.buttonTabs5]:
             i.configure(bg=bg2, fg=fg, activebackground=bg5, activeforeground=fg)
+            i.unbind("<Enter>")
+            i.unbind("<Leave>")
             i.bind("<Enter>", lambda event, widget=i: widget.configure(bg=bg3, fg=fg))
             i.bind("<Leave>", lambda event, widget=i: widget.configure(bg=bg2, fg=fg))
-        for i in [self.menuActions, self.menu_B3_url_bar, self.menu_B3_sidebar]:
+        for i in [self.menuActions, self.menu_B3_url_bar, self.menu_B3_favorites, self.menu_B3_tabs]:
             if bg == "#111111":
                 i.configure(background="#000", foreground="#fff", activebackground="#333", activeforeground="#fff")
             else:
@@ -538,6 +583,13 @@ class Headlines4pc:
         window.geometry("700x510")
         window.rowconfigure(0, weight=1)
         window.columnconfigure(0, weight=1)
+        try:
+            window.iconbitmap("icon.ico")
+        except:
+            try:
+                window.iconbitmap("")
+            except:
+                pass
         help_tabs = ttk.Notebook(window)
         help_tabs.grid(row=0, column=0, sticky="nsew")
         about = tk.Text(help_tabs, relief=tk.FLAT, border=16, font=(font.nametofont("TkDefaultFont").actual()["family"], 12), wrap=tk.WORD, background="#dedede")
