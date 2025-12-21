@@ -4,11 +4,14 @@ from tkinter.filedialog import askopenfilename, asksaveasfilename, askdirectory
 from tkinter.messagebox import *
 from tkinter import font
 from urllib.request import *
-import re, html, webbrowser, datetime, csv
+import re, html, webbrowser, datetime, csv, threading
 import xml.etree.ElementTree as ET
+import ctypes as ct
 
 class Headlines4pc:
     def __init__(self):
+        self.fetcher_result = None
+        self.fetcher_error = None
         self.rss_data = {}
         self.url_dict = {}
         self.current_feed_id = ""
@@ -33,9 +36,7 @@ class Headlines4pc:
                 pass
 
         self.style = ttk.Style(self.root)
-        self.style.layout("Treeview", [
-            ("Treeview.treearea", {"sticky": "nsew"})
-        ])
+        self.style.layout("Treeview", [("Treeview.treearea", {"sticky": "nsew"})])
 
         self.menuActions = tk.Menu(self.root, tearoff=False, activeborderwidth=2.5)
         self.menuActions.add_command(label="Copy", command=lambda: self.text.clipboard_append(self.text.get(1.0, tk.END)))
@@ -43,7 +44,7 @@ class Headlines4pc:
         self.menuActions.add_command(label="View XML", command=self.toggle_xml)
         self.menuActions.add_separator()
         self.menuActions.add_command(label="Switch theme", command=self.switch_theme)
-        self.menuActions.add_command(label="Full screen", command=lambda: self.root.attributes("-fullscreen", not self.root.attributes("-fullscreen")))
+        self.menuActions.add_command(label="Full screen", command=lambda: (self.root.attributes("-fullscreen", not self.root.attributes("-fullscreen")), self.restore_dark_mode()))
         self.menuActions.add_separator()
         self.menuActions.add_command(label="Help", command=self.help_window)
 
@@ -74,7 +75,7 @@ class Headlines4pc:
         self.menu_B3_url_bar.add_command(label="Copy", command=lambda: self.url_bar.event_generate("<<Copy>>"), accelerator="Ctrl+C")
         self.menu_B3_url_bar.add_command(label="Paste", command=lambda: self.url_bar.event_generate("<<Paste>>"), accelerator="Ctrl+V")
         self.menu_B3_url_bar.add_separator()
-        self.menu_B3_url_bar.add_command(label="Select All", command=lambda: self.url_bar.select_range(0, tk.END), accelerator="Ctrl+A")
+        self.menu_B3_url_bar.add_command(label="Select All", command=lambda: self.url_bar.event_generate("<<SelectAll>>"), accelerator="Ctrl+A")
         self.url_bar.bind("<Button-3>", lambda event: self.menu_B3_url_bar.tk_popup(event.x_root, event.y_root))
 
         self.main = tk.Frame(self.root)
@@ -88,13 +89,16 @@ class Headlines4pc:
         self.reader = tk.Frame(self.content, bd=48, bg="#ffffff")
         self.reader.rowconfigure(2, weight=1)
         self.reader.columnconfigure(0, weight=1)
-        self.titleLabel = tk.Label(self.reader, font=(font.nametofont("TkDefaultFont").actual()["family"], 18, "bold"), justify="left", bg="#ffffff")
+        self.titleLabel = tk.Label(self.reader, font=(font.nametofont("TkDefaultFont").actual()["family"], 18, "bold"), anchor="w", justify="left", bg="#ffffff")
         self.titleLabel.grid(row=0, column=0, sticky="nw")
         self.titleLabel.bind("<Double-Button-1>", lambda event: self.open_in_browser())
-        self.dtLabel = tk.Label(self.reader, font=(font.nametofont("TkDefaultFont").actual()["family"], 12), justify="left", bg="#ffffff")
+        self.dtLabel = tk.Label(self.reader, font=(font.nametofont("TkDefaultFont").actual()["family"], 12), anchor="w", justify="left", bg="#ffffff")
         self.dtLabel.grid(row=1, column=0, sticky="nw", pady=(0, 8))
         self.text = tk.Text(self.reader, font=(font.nametofont("TkDefaultFont").actual()["family"], 11), relief=tk.FLAT, wrap=tk.WORD, state="disabled")
         self.text.grid(row=2, column=0, sticky="nsew")
+
+        for widget in [self.reader, self.titleLabel, self.dtLabel, self.text]:
+            widget.bind("<Button-3>", lambda event: self.menuActions.tk_popup(event.x_root, event.y_root))
 
         self.treeview = ttk.Treeview(self.content, show="tree")
         self.content.add(self.reader, weight=1)
@@ -180,7 +184,7 @@ class Headlines4pc:
         self.root.bind("<F1>", lambda event: self.help_window())
         self.root.bind("<F5>", lambda event: self.refresh())
         self.root.bind("<F10>", lambda event: self.menuActions.tk_popup(self.main.winfo_rootx(), self.main.winfo_rooty()))
-        self.root.bind("<F11>", lambda event: self.root.attributes("-fullscreen", not self.root.attributes("-fullscreen")))
+        self.root.bind("<F11>", lambda event: (self.root.attributes("-fullscreen", not self.root.attributes("-fullscreen")), self.restore_dark_mode()))
         self.root.bind("<Control-b>", lambda event: self.open_in_browser())
         self.root.bind("<Control-B>", lambda event: self.open_in_browser())
         self.root.bind("<Control-Shift-b>", lambda event: self.toggle_favorites())
@@ -219,29 +223,75 @@ class Headlines4pc:
        
         self.root.mainloop()
 
-    def open_rss(self):
+    def download_feed(self, feed_id, url):
         try:
-            if self.url_bar.get() != "":
-                data = urlopen(self.url_bar.get()).read().decode("utf8")
+            data = urlopen(url).read().decode("utf8")
+            self.fetcher_result = (feed_id, url, data)
+            self.fetcher_error = None
+        except:
+            self.fetcher_result = (feed_id, url, None)
+            self.fetcher_error = True
+
+    def open_feed(self, url):
+        try:
+            if not url:
+                return
+
+            self.buttonActions.configure(text="Loading...")
+            self.fetcher_result = None
+            self.fetcher_error = None
+
+            threading.Thread(target=self.download_feed, args=(self.current_feed_id, url), daemon=True).start()
+
+            self.root.after(100, self.check_open_feed)
+        except:
+            pass
+   
+    def check_open_feed(self):
+        try:
+            if self.fetcher_result is None:
+                self.root.after(100, self.check_open_feed)
+                return
+
+            feed_id, url, data = self.fetcher_result
+
+            self.fetcher_result = None
+            self.fetcher_error = None
+            self.buttonActions.configure(text="Actions")
+
+            if data is None:
+                return
+
+            try:
                 xml_root = ET.fromstring(data)
                 try:
                     feed_id = xml_root.findtext(".//channel/title")
                     feed_id = re.sub(r'[\\/:*?"<>|;]', "", feed_id)
                 except:
                     feed_id = "Unknown Feed"
+
                 num = 2
-                if feed_id in list(self.rss_data.keys()):
-                    temp_id = f"{feed_id} ({num})"
-                    while temp_id in list(self.rss_data.keys()):
-                        num += 1
-                        temp_id = f"{feed_id} ({num})"
-                    feed_id = temp_id
+                base_id = feed_id
+                while feed_id in self.rss_data:
+                    feed_id = f"{base_id} ({num})"
+                    num += 1
+
                 self.rss_data[feed_id] = data
-                self.url_dict[feed_id] = self.url_bar.get()
+                self.url_dict[feed_id] = url
                 self.url_bar.delete(0, tk.END)
                 self.load_rss(feed_id)
+            except:
+                pass
         except:
-            showerror("Headlines4pc", "An error occurred when trying to access this feed.")
+            pass
+
+    def open_rss(self):
+        try:
+            url = self.url_bar.get()
+            self.url_bar.delete(0, tk.END)
+            self.open_feed(url)
+        except:
+            pass
 
     def load_rss(self, feed_id):
         self.listboxTabs.delete(0, tk.END)
@@ -304,17 +354,40 @@ class Headlines4pc:
             self.load_item(self.current_feed_id, self.current_item_id)
 
     def refresh(self):
-        if self.current_feed_id and self.url_dict[self.current_feed_id] != "":
+        if self.current_feed_id and self.url_dict.get(self.current_feed_id) != "":
             try:
-                data = urlopen(self.url_dict[self.current_feed_id]).read().decode("utf8")
-                self.rss_data[self.current_feed_id] = data
-                self.load_rss(self.current_feed_id)
+                self.buttonRefresh.configure(text="Refreshing...")
+                self.fetcher_result = None
+                self.fetcher_error = None
+
+                threading.Thread(target=self.download_feed, args=(self.current_feed_id, self.url_dict[self.current_feed_id]), daemon=True).start()
+                self.root.after(100, lambda: self.check_refresh())
             except:
-                showerror("Headlines4pc", "An error occurred when trying to refresh this feed.")
+                pass
+   
+    def check_refresh(self):
+        if self.fetcher_error is not None:
+            self.fetcher_error = None
+            self.fetcher_result = None
+            self.buttonRefresh.configure(text="Refresh")
+            return
+
+        if self.fetcher_result is None:
+            self.root.after(100, lambda: self.check_refresh())
+            return
+
+        feed_id, url, data = self.fetcher_result
+        self.fetcher_result = None
+        self.fetcher_error = None
+        self.rss_data[feed_id] = data
+        self.buttonRefresh.configure(text="Refresh")
+        self.load_rss(feed_id)
 
     def open_from_tabs(self):
         try:
-            self.load_rss(self.listboxTabs.get(tk.ACTIVE))
+            feed_id = self.listboxTabs.get(tk.ACTIVE)
+            if feed_id:
+                self.load_rss(feed_id)
         except:
             pass
 
@@ -363,7 +436,7 @@ class Headlines4pc:
                 self.url_dict[feed_id] = ""
                 self.load_rss(feed_id)
         except:
-            showerror("Headlines4pc", "An error occurred when trying to access this feed.")
+            pass
 
     def export_rss(self):
         if self.current_feed_id != "":
@@ -401,6 +474,8 @@ class Headlines4pc:
 
     def import_favorites(self):
         filepath = askopenfilename(title="Import favorites", filetypes=[("Comma Separated Values", ".csv")])
+        if not filepath:
+            return
         with open(filepath, "r", encoding="utf8", newline="") as file:
             csv_data = csv.reader(file, delimiter=";")
             for r in csv_data:
@@ -412,6 +487,8 @@ class Headlines4pc:
 
     def export_favorites(self):
         filepath = asksaveasfilename(title="Export favorites", defaultextension=".csv", filetypes=[("Comma Separated Values", ".csv")])
+        if not filepath:
+            return
         with open(filepath, "w", encoding="utf8", newline="") as file:
             csv_writer = csv.writer(file, delimiter=";")
             for key, value in self.favorites.items():
@@ -420,27 +497,10 @@ class Headlines4pc:
     def open_favorite(self):
         try:
             url = self.favorites[self.listboxFavorites.get(tk.ACTIVE)]
-            data = urlopen(url).read().decode("utf8")
-            xml_root = ET.fromstring(data)
-            try:
-                feed_id = xml_root.findtext(".//channel/title")
-                feed_id = re.sub(r'[\\/:*?"<>|;]', "", feed_id)
-            except:
-                feed_id = "Unknown Feed"
-            num = 2
-            if feed_id in list(self.rss_data.keys()):
-                temp_id = f"{feed_id} ({num})"
-                while temp_id in list(self.rss_data.keys()):
-                    num += 1
-                    temp_id = f"{feed_id} ({num})"
-                feed_id = temp_id
-            self.rss_data[feed_id] = data
-            self.url_dict[feed_id] = url
-            self.url_bar.delete(0, tk.END)
-            self.load_rss(feed_id)
+            self.open_feed(url)
             self.toggle_tabs()
         except:
-            showerror("Headlines4pc", "An error occurred when trying to access this feed.")
+            pass
 
     def load_favorites(self):
         try:
@@ -542,17 +602,25 @@ class Headlines4pc:
         for successor in element:
             self.insert_item(treeview_item_id, successor)
 
+    def restore_dark_mode(self):
+        if self.toolbar.cget("bg") == "#1C1C1C":
+            ct.windll.dwmapi.DwmSetWindowAttribute(ct.windll.user32.GetParent(self.root.winfo_id()), 20, ct.byref(ct.c_int(2)), ct.sizeof(ct.c_int(2)))
+
     def switch_theme(self):
-        if self.text["bg"] == "#ffffff":
-            bg, bg2, bg3, bg4, bg5, fg = "#111111", "#2d2d2d", "#3c3c3c", "#4d4d4d", "#444444", "#ffffff"
+        if self.text["bg"] == "#FFFFFF":
+            bg, bg2, bg3, bg4, bg5, bg6, bg7, fg = "#202020", "#1C1C1C", "#2B2B2B", "#4D4D4D", "#3A3A3A", "#0E0E0E", "#323232", "#FFFFFF"
+            var = 2
         else:
-            bg, bg2, bg3, bg4, bg5, fg = "#ffffff", "#f0f0f0", "#e1e1e1", "#ffffff", "#bbbbbb", "#000000"
-        self.style.configure("TPanedwindow", background=bg2)
-        self.style.configure("TSeparator", background=bg2)
+            bg, bg2, bg3, bg4, bg5, bg6, bg7, fg = "#FFFFFF", "#F0F0F0", "#E1E1E1", "#FFFFFF", "#BBBBBB", "#F0F0F0", "#E5E5E5", "#000000"
+            var = 0
+        ct.windll.dwmapi.DwmSetWindowAttribute(ct.windll.user32.GetParent(self.root.winfo_id()), 20, ct.byref(ct.c_int(var)), ct.sizeof(ct.c_int(var)))
+        self.style.configure("TPanedwindow", background=bg6)
+        self.style.configure("TSeparator", background=bg7, foreground=bg7)
         self.reader.configure(bg=bg)
         for i in [self.titleLabel, self.dtLabel, self.text]:
             i.configure(bg=bg, fg=fg)
         self.text.tag_configure("sel", background=bg, foreground=fg)
+
         self.style.configure("Treeview", background=bg, foreground=fg)
         for i in [self.buttonActions, self.buttonPrevious, self.buttonNext, self.buttonRefresh, self.buttonFavorites, self.buttonTabs]:
             i.configure(bg=bg2, fg=fg, activebackground=bg5, activeforeground=fg)
@@ -572,10 +640,10 @@ class Headlines4pc:
             i.bind("<Enter>", lambda event, widget=i: widget.configure(bg=bg3, fg=fg))
             i.bind("<Leave>", lambda event, widget=i: widget.configure(bg=bg2, fg=fg))
         for i in [self.menuActions, self.menu_B3_url_bar, self.menu_B3_favorites, self.menu_B3_tabs]:
-            if bg == "#111111":
-                i.configure(background="#000", foreground="#fff", activebackground="#333", activeforeground="#fff")
+            if bg == "#202020":
+                i.configure(background="#1C1C1C", foreground="#FFFFFF", activebackground="#323232", activeforeground="#FFFFFF")
             else:
-                i.configure(background="#f0f0f0", foreground="#000", activebackground="#ccc", activeforeground="#000")
+                i.configure(background="#F0F0F0", foreground="#000000", activebackground="#DADADA", activeforeground="#000000")
 
     def help_window(self):
         window = tk.Toplevel()
