@@ -50,19 +50,19 @@ class Headlines4pc:
 
         self.toolbar = tk.Frame(self.root)
         self.toolbar.grid(row=0, column=0, sticky="nsew")
-        self.toolbar.columnconfigure(3, weight=1)
-        self.toolbar.columnconfigure(4, weight=1)
+        self.toolbar.columnconfigure(3, weight=1, minsize=300)
+        self.toolbar.columnconfigure(4, weight=0)
         self.buttonActions = tk.Button(self.toolbar, bd=0, width=10, text="Actions", command=lambda: self.menuActions.tk_popup(self.main.winfo_rootx(), self.main.winfo_rooty()))
         self.buttonActions.grid(row=0, column=0, sticky="nsw")
         self.buttonPrevious = tk.Button(self.toolbar, bd=0, width=10, text="Previous", command=self.previous_item)
         self.buttonPrevious.grid(row=0, column=1, sticky="nsw")
         self.buttonNext = tk.Button(self.toolbar, bd=0, width=10, text="Next", command=self.next_item)
-        self.buttonNext.grid(row=0, column=2, sticky="nsw")
-        self.url_bar = tk.Entry(self.toolbar, bd=2, relief=tk.FLAT, width=40, font=(font.nametofont("TkDefaultFont").actual()["family"], 11))
-        self.url_bar.grid(row=0, column=3, sticky="nse", pady=5)
+        self.buttonNext.grid(row=0, column=2, sticky="nsew")
+        self.url_bar = tk.Entry(self.toolbar, bd=2, relief=tk.FLAT, font=(font.nametofont("TkDefaultFont").actual()["family"], 11))
+        self.url_bar.grid(row=0, column=3, sticky="nsew", padx=(50, 0), pady=5)
         self.url_bar.bind("<Return>", lambda event: self.buttonOK.invoke())
         self.buttonOK = tk.Button(self.toolbar, bd=0, width=5, text="OK", bg="#e1e1e1", command=self.open_rss)
-        self.buttonOK.grid(row=0, column=4, sticky="nsw", pady=5)
+        self.buttonOK.grid(row=0, column=4, sticky="nsew", padx=(0, 50), pady=5)
         self.buttonRefresh = tk.Button(self.toolbar, bd=0, width=10, text="Refresh", command=self.refresh)
         self.buttonRefresh.grid(row=0, column=5, sticky="nse")
         self.buttonFavorites = tk.Button(self.toolbar, bd=0, width=10, text="Favorites", command=self.toggle_favorites)
@@ -603,8 +603,11 @@ class Headlines4pc:
             self.insert_item(treeview_item_id, successor)
 
     def restore_dark_mode(self):
-        if self.toolbar.cget("bg") == "#1C1C1C":
-            ct.windll.dwmapi.DwmSetWindowAttribute(ct.windll.user32.GetParent(self.root.winfo_id()), 20, ct.byref(ct.c_int(2)), ct.sizeof(ct.c_int(2)))
+        try:
+            if self.toolbar.cget("bg") == "#1C1C1C":
+                ct.windll.dwmapi.DwmSetWindowAttribute(ct.windll.user32.GetParent(self.root.winfo_id()), 20, ct.byref(ct.c_int(2)), ct.sizeof(ct.c_int(2)))
+        except:
+            return
 
     def switch_theme(self):
         if self.text["bg"] == "#FFFFFF":
@@ -613,7 +616,10 @@ class Headlines4pc:
         else:
             bg, bg2, bg3, bg4, bg5, bg6, bg7, fg = "#FFFFFF", "#F0F0F0", "#E1E1E1", "#FFFFFF", "#BBBBBB", "#F0F0F0", "#E5E5E5", "#000000"
             var = 0
-        ct.windll.dwmapi.DwmSetWindowAttribute(ct.windll.user32.GetParent(self.root.winfo_id()), 20, ct.byref(ct.c_int(var)), ct.sizeof(ct.c_int(var)))
+        try:
+            ct.windll.dwmapi.DwmSetWindowAttribute(ct.windll.user32.GetParent(self.root.winfo_id()), 20, ct.byref(ct.c_int(var)), ct.sizeof(ct.c_int(var)))
+        except:
+            return
         self.style.configure("TPanedwindow", background=bg6)
         self.style.configure("TSeparator", background=bg7, foreground=bg7)
         self.reader.configure(bg=bg)
