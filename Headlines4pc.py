@@ -9,7 +9,11 @@ import xml.etree.ElementTree as ET
 import ctypes as ct
 
 class Headlines4pc:
-    def __init__(self):
+    open_windows = []
+
+    def __init__(self, root, favorites):
+        Headlines4pc.open_windows.append(self)
+
         self.fetcher_result = None
         self.fetcher_error = None
         self.rss_data = {}
@@ -18,9 +22,9 @@ class Headlines4pc:
         self.current_item_id = 0
         self.processed_feed_data = {}
         self.current_url = ""
-        self.favorites = {}
+        self.favorites = favorites
 
-        self.root = tk.Tk()
+        self.root = root
         self.root.title("Headlines4pc")
         self.root.geometry("900x600")
         self.root.rowconfigure(1, weight=1)
@@ -35,16 +39,17 @@ class Headlines4pc:
             except:
                 pass
 
+        self.prefix = id(self.root)
         self.style = ttk.Style(self.root)
-        self.style.layout("Treeview", [("Treeview.treearea", {"sticky": "nsew"})])
+        self.style.layout(f"{self.prefix}.Treeview", [("Treeview.treearea", {"sticky": "nsew"})])
 
         self.menuActions = tk.Menu(self.root, tearoff=False, activeborderwidth=2.5)
-        self.menuActions.add_command(label="Copy", command=lambda: self.text.clipboard_append(self.text.get(1.0, tk.END)))
-        self.menuActions.add_command(label="Open in browser", command=self.open_in_browser)
-        self.menuActions.add_command(label="View XML", command=self.toggle_xml)
+        self.menuActions.add_command(label="New Window", command=self.open_new_window)
+        self.menuActions.add_command(label="Open in Browser", command=self.open_in_browser)
+        self.menuActions.add_command(label="XML Preview", command=self.toggle_xml)
         self.menuActions.add_separator()
-        self.menuActions.add_command(label="Switch theme", command=self.switch_theme)
-        self.menuActions.add_command(label="Full screen", command=lambda: (self.root.attributes("-fullscreen", not self.root.attributes("-fullscreen")), self.restore_dark_mode()))
+        self.menuActions.add_command(label="Switch Theme", command=self.switch_theme)
+        self.menuActions.add_command(label="Full Screen", command=lambda: (self.root.attributes("-fullscreen", not self.root.attributes("-fullscreen")), self.restore_dark_mode()))
         self.menuActions.add_separator()
         self.menuActions.add_command(label="Help", command=self.help_window)
 
@@ -70,37 +75,42 @@ class Headlines4pc:
         self.buttonTabs = tk.Button(self.toolbar, bd=0, width=10, text="Tabs", command=self.toggle_tabs)
         self.buttonTabs.grid(row=0, column=7, sticky="nse")
 
-        self.menu_B3_url_bar = tk.Menu(self.root, tearoff=False, activeborderwidth=2.5)
-        self.menu_B3_url_bar.add_command(label="Cut", command=lambda: self.url_bar.event_generate("<<Cut>>"), accelerator="Ctrl+X")
-        self.menu_B3_url_bar.add_command(label="Copy", command=lambda: self.url_bar.event_generate("<<Copy>>"), accelerator="Ctrl+C")
-        self.menu_B3_url_bar.add_command(label="Paste", command=lambda: self.url_bar.event_generate("<<Paste>>"), accelerator="Ctrl+V")
-        self.menu_B3_url_bar.add_separator()
-        self.menu_B3_url_bar.add_command(label="Select All", command=lambda: self.url_bar.event_generate("<<SelectAll>>"), accelerator="Ctrl+A")
-        self.url_bar.bind("<Button-3>", lambda event: self.menu_B3_url_bar.tk_popup(event.x_root, event.y_root))
+        self.context_menu_url_bar = tk.Menu(self.root, tearoff=False, activeborderwidth=2.5)
+        self.context_menu_url_bar.add_command(label="Cut", command=lambda: self.url_bar.event_generate("<<Cut>>"), accelerator="Ctrl+X")
+        self.context_menu_url_bar.add_command(label="Copy", command=lambda: self.url_bar.event_generate("<<Copy>>"), accelerator="Ctrl+C")
+        self.context_menu_url_bar.add_command(label="Paste", command=lambda: self.url_bar.event_generate("<<Paste>>"), accelerator="Ctrl+V")
+        self.context_menu_url_bar.add_separator()
+        self.context_menu_url_bar.add_command(label="Select All", command=lambda: self.url_bar.event_generate("<<SelectAll>>"), accelerator="Ctrl+A")
+        self.url_bar.bind("<Button-3>", lambda event: self.context_menu_url_bar.tk_popup(event.x_root, event.y_root))
 
         self.main = tk.Frame(self.root)
         self.main.grid(row=1, column=0, sticky="nsew")
         self.main.rowconfigure(0, weight=1)
         self.main.columnconfigure(0, weight=1)
 
-        self.content = ttk.PanedWindow(self.main, orient=tk.VERTICAL)
+        self.content = ttk.PanedWindow(self.main, orient=tk.VERTICAL, style=f"{self.prefix}.TPanedwindow")
         self.content.grid(row=0, column=0, sticky="nsew")
 
         self.reader = tk.Frame(self.content, bd=48, bg="#ffffff")
         self.reader.rowconfigure(2, weight=1)
         self.reader.columnconfigure(0, weight=1)
+
         self.titleLabel = tk.Label(self.reader, font=(font.nametofont("TkDefaultFont").actual()["family"], 18, "bold"), anchor="w", justify="left", bg="#ffffff")
         self.titleLabel.grid(row=0, column=0, sticky="nw")
         self.titleLabel.bind("<Double-Button-1>", lambda event: self.open_in_browser())
+
         self.dtLabel = tk.Label(self.reader, font=(font.nametofont("TkDefaultFont").actual()["family"], 12), anchor="w", justify="left", bg="#ffffff")
         self.dtLabel.grid(row=1, column=0, sticky="nw", pady=(0, 8))
+
         self.text = tk.Text(self.reader, font=(font.nametofont("TkDefaultFont").actual()["family"], 11), relief=tk.FLAT, wrap=tk.WORD, state="disabled")
         self.text.grid(row=2, column=0, sticky="nsew")
 
-        for widget in [self.reader, self.titleLabel, self.dtLabel, self.text]:
-            widget.bind("<Button-3>", lambda event: self.menuActions.tk_popup(event.x_root, event.y_root))
+        self.context_menu_text = tk.Menu(self.root, tearoff=False, activeborderwidth=2.5)
+        self.context_menu_text.add_command(label="Copy", command=lambda: self.text.clipboard_append(self.text.get(1.0, tk.END)))
 
-        self.treeview = ttk.Treeview(self.content, show="tree")
+        self.text.bind("<Button-3>", lambda event: self.context_menu_text.tk_popup(event.x_root, event.y_root))
+
+        self.treeview = ttk.Treeview(self.content, show="tree", style=f"{self.prefix}.Treeview")
         self.content.add(self.reader, weight=1)
 
         self.sidebar_favorites = tk.Frame(self.main)
@@ -110,23 +120,23 @@ class Headlines4pc:
         self.labelFavorites = tk.Label(self.sidebar_favorites, text="Favorites", relief=tk.FLAT, bd=12, font=(font.nametofont("TkDefaultFont").actual()["family"], 16))
         self.labelFavorites.grid(row=0, column=0, sticky="nsew")
 
-        self.separatorFavorites1 = ttk.Separator(self.sidebar_favorites)
+        self.separatorFavorites1 = ttk.Separator(self.sidebar_favorites, style=f"{self.prefix}.TSeparator")
         self.separatorFavorites1.grid(row=1, column=0, sticky="nsew")
 
         self.listboxFavorites = tk.Listbox(self.sidebar_favorites, width=30, relief=tk.FLAT, bd=12, highlightthickness=0, font=(font.nametofont("TkDefaultFont").actual()["family"], 12))
         self.listboxFavorites.grid(row=2, column=0, sticky="nsew")
         self.listboxFavorites.bind("<Double-Button-1>", lambda event: self.open_favorite())
 
-        self.menu_B3_favorites = tk.Menu(self.root, tearoff=False, activeborderwidth=2.5)
-        self.menu_B3_favorites.add_command(label="Add", command=self.add_favorite)
-        self.menu_B3_favorites.add_command(label="Remove", command=self.remove_favorite)
-        self.menu_B3_favorites.add_separator()
-        self.menu_B3_favorites.add_command(label="Import", command=self.import_favorites)
-        self.menu_B3_favorites.add_command(label="Export", command=self.export_favorites)
+        self.context_menu_favorites = tk.Menu(self.root, tearoff=False, activeborderwidth=2.5)
+        self.context_menu_favorites.add_command(label="Add", command=self.add_favorite)
+        self.context_menu_favorites.add_command(label="Remove", command=self.remove_favorite)
+        self.context_menu_favorites.add_separator()
+        self.context_menu_favorites.add_command(label="Import", command=self.import_favorites)
+        self.context_menu_favorites.add_command(label="Export", command=self.export_favorites)
 
-        self.listboxFavorites.bind("<Button-3>", lambda event: self.menu_B3_favorites.tk_popup(event.x_root, event.y_root))
+        self.listboxFavorites.bind("<Button-3>", lambda event: self.context_menu_favorites.tk_popup(event.x_root, event.y_root))
 
-        self.separatorFavorites2 = ttk.Separator(self.sidebar_favorites)
+        self.separatorFavorites2 = ttk.Separator(self.sidebar_favorites, style=f"{self.prefix}.TSeparator")
         self.separatorFavorites2.grid(row=3, column=0, sticky="nsew")
         
         self.buttonFavorites1 = tk.Button(self.sidebar_favorites, bd=0, relief=tk.FLAT, height=2, width=10, anchor="w", text="    Add", command=self.add_favorite)
@@ -145,24 +155,24 @@ class Headlines4pc:
         self.labelTabs = tk.Label(self.sidebar_tabs, text="Tabs", relief=tk.FLAT, bd=12, font=(font.nametofont("TkDefaultFont").actual()["family"], 16))
         self.labelTabs.grid(row=0, column=0, sticky="nsew")
 
-        self.separatorTabs1 = ttk.Separator(self.sidebar_tabs)
+        self.separatorTabs1 = ttk.Separator(self.sidebar_tabs, style=f"{self.prefix}.TSeparator")
         self.separatorTabs1.grid(row=1, column=0, sticky="nsew")
         
         self.listboxTabs = tk.Listbox(self.sidebar_tabs, width=30, bg="#e1e1e1", relief=tk.FLAT, bd=12, highlightthickness=0, font=(font.nametofont("TkDefaultFont").actual()["family"], 12))
         self.listboxTabs.grid(row=2, column=0, sticky="nsew")
         self.listboxTabs.bind("<Double-Button-1>", lambda event: self.open_from_tabs())
 
-        self.menu_B3_tabs = tk.Menu(self.root, tearoff=False, activeborderwidth=2.5)
-        self.menu_B3_tabs.add_command(label="Open", command=self.open_from_tabs)
-        self.menu_B3_tabs.add_command(label="Close", command=self.close_tab)
-        self.menu_B3_tabs.add_separator()
-        self.menu_B3_tabs.add_command(label="Import", command=self.import_rss)
-        self.menu_B3_tabs.add_command(label="Export", command=self.export_rss)
-        self.menu_B3_tabs.add_command(label="Export All", command=self.export_all)
+        self.context_menu_tabs = tk.Menu(self.root, tearoff=False, activeborderwidth=2.5)
+        self.context_menu_tabs.add_command(label="Open", command=self.open_from_tabs)
+        self.context_menu_tabs.add_command(label="Close", command=self.close_tab)
+        self.context_menu_tabs.add_separator()
+        self.context_menu_tabs.add_command(label="Import", command=self.import_rss)
+        self.context_menu_tabs.add_command(label="Export", command=self.export_rss)
+        self.context_menu_tabs.add_command(label="Export All", command=self.export_all)
 
-        self.listboxTabs.bind("<Button-3>", lambda event: self.menu_B3_tabs.tk_popup(event.x_root, event.y_root))
+        self.listboxTabs.bind("<Button-3>", lambda event: self.context_menu_tabs.tk_popup(event.x_root, event.y_root))
 
-        self.separatorTabs2 = ttk.Separator(self.sidebar_tabs)
+        self.separatorTabs2 = ttk.Separator(self.sidebar_tabs, style=f"{self.prefix}.TSeparator")
         self.separatorTabs2.grid(row=3, column=0, sticky="nsew")
         
         self.buttonTabs1 = tk.Button(self.sidebar_tabs, bd=0, relief=tk.FLAT, height=2, width=10, anchor="w", text="    Open", command=self.open_from_tabs)
@@ -178,7 +188,7 @@ class Headlines4pc:
 
         self.url_bar.focus_set()
         self.switch_theme()
-        self.load_favorites()
+        self.refresh_favorites()
 
         self.root.bind("<Escape>", lambda event: self.root.attributes("-fullscreen", False))
         self.root.bind("<F1>", lambda event: self.help_window())
@@ -220,8 +230,6 @@ class Headlines4pc:
         self.root.bind("<Alt-Q>", lambda event: self.url_bar.focus_set())
         self.root.bind("<Alt-s>", lambda event: self.url_bar.focus_set())
         self.root.bind("<Alt-S>", lambda event: self.url_bar.focus_set())
-       
-        self.root.mainloop()
 
     def download_feed(self, feed_id, url):
         try:
@@ -448,9 +456,10 @@ class Headlines4pc:
     def export_all(self):
         if self.rss_data != {}:
             directory = askdirectory(title="Export All")
-            for feed_id in self.rss_data:
-                with open(f"{directory}/{feed_id}.rss", "w", encoding="utf8") as file:
-                    file.write(self.rss_data[feed_id])
+            if directory:
+                for feed_id in self.rss_data:
+                    with open(f"{directory}/{feed_id}.rss", "w", encoding="utf8") as file:
+                        file.write(self.rss_data[feed_id])
 
     def add_favorite(self):
         if self.current_feed_id != "":
@@ -458,17 +467,13 @@ class Headlines4pc:
                 showerror("Headlines4pc", "You cannot add local feeds to favorites.")
             else:
                 self.favorites[self.current_feed_id] = self.url_dict[self.current_feed_id]
-                self.listboxFavorites.delete(0, "end")
-                for i in list(self.favorites.keys()):
-                    self.listboxFavorites.insert("end", i)
+                self.refresh_favorites()
 
     def remove_favorite(self):
         try:
             feed_id = self.listboxFavorites.get(tk.ACTIVE)
             self.favorites.pop(feed_id, None)
-            self.listboxFavorites.delete(0, "end")
-            for i in list(self.favorites.keys()):
-                self.listboxFavorites.insert("end", i)
+            self.refresh_favorites()
         except:
             pass
 
@@ -481,9 +486,7 @@ class Headlines4pc:
             for r in csv_data:
                 if len(r) > 1:
                     self.favorites[r[0]] = r[1]
-        self.listboxFavorites.delete(0, "end")
-        for i in list(self.favorites.keys()):
-            self.listboxFavorites.insert("end", i)
+        self.refresh_favorites()
 
     def export_favorites(self):
         filepath = asksaveasfilename(title="Export favorites", defaultextension=".csv", filetypes=[("Comma Separated Values", ".csv")])
@@ -502,18 +505,11 @@ class Headlines4pc:
         except:
             pass
 
-    def load_favorites(self):
-        try:
-            with open("favorites.csv", "r", encoding="utf8", newline="") as file:
-                csv_data = csv.reader(file, delimiter=";")
-                for r in csv_data:
-                    if len(r) > 1:
-                        self.favorites[r[0]] = r[1]
-        except:
-            self.favorites = {}
-        self.listboxFavorites.delete(0, "end")
-        for i in list(self.favorites.keys()):
-            self.listboxFavorites.insert("end", i)
+    def refresh_favorites(self):
+        for window in Headlines4pc.open_windows:
+            window.listboxFavorites.delete(0, tk.END)
+            for key in self.favorites:
+                window.listboxFavorites.insert(tk.END, key)
 
     def save_favorites_and_exit(self):
         try:
@@ -522,6 +518,7 @@ class Headlines4pc:
                 for key, value in self.favorites.items():
                     csv_writer.writerow([key, value])
         finally:
+            Headlines4pc.open_windows.remove(self)
             self.root.destroy()
 
     def add_favorite_menu(self):
@@ -585,10 +582,8 @@ class Headlines4pc:
     def toggle_xml(self):
         if str(self.treeview) in self.content.panes():
             self.content.forget(self.treeview)
-            self.menuActions.entryconfigure(2, label="View XML")
         else:
             self.content.add(self.treeview, weight=1)
-            self.menuActions.entryconfigure(2, label="Hide XML")
 
     def insert_item(self, predecessor, element):
         if element.tag == "rss" or element.tag == "channel":
@@ -597,8 +592,11 @@ class Headlines4pc:
             treeview_item_id = self.treeview.insert(predecessor, "end", text=element.tag)
         for key, value in element.attrib.items():
             self.treeview.insert(treeview_item_id, "end", text=f"@{key}={value}")
-        if element.text and element.text.strip():
-            self.treeview.insert(treeview_item_id, "end", text=element.text.strip())
+        text = element.text
+        if isinstance(text, str):
+            text = text.strip()
+            if text:
+                self.treeview.insert(treeview_item_id, "end", text=text)
         for successor in element:
             self.insert_item(treeview_item_id, successor)
 
@@ -610,7 +608,7 @@ class Headlines4pc:
             return
 
     def switch_theme(self):
-        if self.text["bg"] == "#FFFFFF":
+        if self.text.cget("bg") == "#FFFFFF":
             bg, bg2, bg3, bg4, bg5, bg6, bg7, fg = "#202020", "#1C1C1C", "#2B2B2B", "#4D4D4D", "#3A3A3A", "#0E0E0E", "#323232", "#FFFFFF"
             var = 2
         else:
@@ -620,14 +618,14 @@ class Headlines4pc:
             ct.windll.dwmapi.DwmSetWindowAttribute(ct.windll.user32.GetParent(self.root.winfo_id()), 20, ct.byref(ct.c_int(var)), ct.sizeof(ct.c_int(var)))
         except:
             return
-        self.style.configure("TPanedwindow", background=bg6)
-        self.style.configure("TSeparator", background=bg7, foreground=bg7)
+        self.style.configure(f"{self.prefix}.TPanedwindow", background=bg6)
+        self.style.configure(f"{self.prefix}.TSeparator", background=bg7, foreground=bg7)
         self.reader.configure(bg=bg)
         for i in [self.titleLabel, self.dtLabel, self.text]:
             i.configure(bg=bg, fg=fg)
         self.text.tag_configure("sel", background=bg, foreground=fg)
 
-        self.style.configure("Treeview", background=bg, foreground=fg)
+        self.style.configure(f"{self.prefix}.Treeview", background=bg, foreground=fg)
         for i in [self.buttonActions, self.buttonPrevious, self.buttonNext, self.buttonRefresh, self.buttonFavorites, self.buttonTabs]:
             i.configure(bg=bg2, fg=fg, activebackground=bg5, activeforeground=fg)
             i.unbind("<Enter>")
@@ -645,7 +643,7 @@ class Headlines4pc:
             i.unbind("<Leave>")
             i.bind("<Enter>", lambda event, widget=i: widget.configure(bg=bg3, fg=fg))
             i.bind("<Leave>", lambda event, widget=i: widget.configure(bg=bg2, fg=fg))
-        for i in [self.menuActions, self.menu_B3_url_bar, self.menu_B3_favorites, self.menu_B3_tabs]:
+        for i in [self.menuActions, self.context_menu_url_bar, self.context_menu_text, self.context_menu_favorites, self.context_menu_tabs]:
             if bg == "#202020":
                 i.configure(background="#1C1C1C", foreground="#FFFFFF", activebackground="#323232", activeforeground="#FFFFFF")
             else:
@@ -666,11 +664,11 @@ class Headlines4pc:
                 pass
         help_tabs = ttk.Notebook(window)
         help_tabs.grid(row=0, column=0, sticky="nsew")
-        about = tk.Text(help_tabs, relief=tk.FLAT, border=16, font=(font.nametofont("TkDefaultFont").actual()["family"], 12), wrap=tk.WORD, background="#dedede")
+        about = tk.Text(help_tabs, relief=tk.FLAT, border=16, font=(font.nametofont("TkDefaultFont").actual()["family"], 12), wrap=tk.WORD, background="#E1E1E1")
         about.insert(tk.INSERT, f"Headlines4pc\nCopyright (c) 2025-{str(datetime.datetime.now().year)}: Waylon Boer\n\nHeadlines4pc is an RSS Feed reader with an easy-to-use user interface.")
         about.configure(state="disabled")
         help_tabs.add(about, text="About")
-        mit_license = tk.Text(help_tabs, relief=tk.FLAT, border=16, font=(font.nametofont("TkDefaultFont").actual()["family"], 12), wrap=tk.WORD, background="#dedede")
+        mit_license = tk.Text(help_tabs, relief=tk.FLAT, border=16, font=(font.nametofont("TkDefaultFont").actual()["family"], 12), wrap=tk.WORD, background="#E1E1E1")
         mit_license.insert(tk.INSERT, """MIT License
 
 Copyright (c) 2025 Waylon Boer
@@ -695,5 +693,25 @@ SOFTWARE.""")
         mit_license.configure(state="disabled")
         help_tabs.add(mit_license, text="License")
 
+    def open_new_window(self):
+        new = tk.Toplevel(self.root)
+        Headlines4pc(new, self.favorites)
+
+def load_saved_favorites():
+    favorites = {}
+    try:
+        with open("favorites.csv", "r", encoding="utf8", newline="") as file:
+            csv_data = csv.reader(file, delimiter=";")
+            for r in csv_data:
+                if len(r) > 1:
+                    favorites[r[0]] = r[1]
+    except:
+        pass
+    return favorites
+
 if __name__ == "__main__":
-    Headlines4pc()
+    root = tk.Tk()
+    shared_favorites = load_saved_favorites()
+    Headlines4pc(root, shared_favorites)
+    root.mainloop()
+
